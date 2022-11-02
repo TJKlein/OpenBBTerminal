@@ -17,7 +17,7 @@ The Forecast menu is called upon by typing `forecast` which opens the following 
 
 ## How to Use
 
-To begin any machine learning, you must first load in data. The menu supports importing both terminal datasets found in `stocks` and `cryptocurrency`, along with external datasets in the form of `.csv` that can be placed in the following location: `.../OpenBBTerminal/custom_imports/forecast/`
+To begin any machine learning, you must first load in data. The menu supports importing both terminal datasets found in `stocks` and `cryptocurrency`, along with external datasets in the form of `.csv` that can be placed in the following location: `~/OpenBBUserData/custom_imports/forecast/`
 
 It is important to note, if you ever have troubles on running a command, please read the help commands to guide you on what is available. You can do this by trailing any command with a `-h`
 
@@ -294,7 +294,7 @@ Before we go combining them, let's train a simple `Block RNN` model on MSFT `clo
 Make sure to always check your current data set to know the column names:
 ```
 (🦋) /forecast/ $ show MSFT
-MSFT has following shape (rowxcolumn): (759, 7)
+MSFT dataset has shape (row, column): (759, 7)
 
                         Dataset MSFT | Showing 10 of 759 rows                         
 ┏━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┓
@@ -428,7 +428,7 @@ We will combine `MSFT` and `AAPL`.
 ```
 (🦋) /forecast/ $ combine MSFT -c AAPL
 (🦋) /forecast/ $ show MSFT
-MSFT has following shape (rowxcolumn): (759, 13)
+MSFT dataset has shape (row, column): (759, 13)
 Dataframe has more than 10 columns. Please export to see all of the data.
 
 

@@ -96,7 +96,6 @@ class CovidController(BaseController):
         parser.add_argument(
             "-c",
             "--country",
-            nargs="+",
             type=str,
             dest="country",
             help="Country to get data for.",
@@ -106,10 +105,12 @@ class CovidController(BaseController):
         ns_parser = self.parse_known_args_and_warn(parser, other_args)
         if ns_parser:
             if ns_parser.country:
-                country = " ".join(ns_parser.country)
+                country = ns_parser.country.title().replace("_", " ")
                 if country not in self.COUNTRY_LIST:
                     logger.error("%s not a valid selection", country)
-                    console.print(f"[red]{country} not a valid selection.[/red]\n")
+                    console.print(
+                        f"[red]{ns_parser.country} not a valid selection.[/red]\n"
+                    )
                     return
                 self.country = country
                 console.print(f"[cyan]{country}[/cyan] loaded\n")
@@ -252,6 +253,9 @@ class CovidController(BaseController):
             parser, other_args, export_allowed=EXPORT_ONLY_RAW_DATA_ALLOWED, limit=10
         )
         if ns_parser:
+            if ns_parser.days < 2:
+                console.print("[red]Days must be greater than 1[/red]")
+                return
             covid_view.display_case_slopes(
                 days_back=ns_parser.days,
                 limit=ns_parser.limit,

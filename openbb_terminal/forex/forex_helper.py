@@ -1,3 +1,4 @@
+"""Forex helper."""
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Iterable
 import os
@@ -5,7 +6,6 @@ import argparse
 import logging
 import re
 
-import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
@@ -16,6 +16,7 @@ from openbb_terminal.rich_config import console
 from openbb_terminal.decorators import log_start_end
 from openbb_terminal.helper_funcs import plot_autoscale, is_valid_axes_count
 from openbb_terminal.config_terminal import theme
+from openbb_terminal.stocks import stocks_helper
 
 
 FOREX_SOURCES: Dict = {
@@ -28,7 +29,6 @@ FOREX_SOURCES: Dict = {
 SOURCES_INTERVALS: Dict = {
     "YahooFinance": [
         "1min",
-        "2min",
         "5min",
         "15min",
         "30min",
@@ -36,10 +36,11 @@ SOURCES_INTERVALS: Dict = {
         "90min",
         "1hour",
         "1day",
-        "5day",
-        "1week",
-        "1month",
-        "3month",
+        # These need to be cleaned up.
+        # "5day",
+        # "1week",
+        # "1month",
+        # "3month",
     ],
     "AlphaVantage": ["1min", "5min", "15min", "30min", "60min"],
 }
@@ -53,14 +54,21 @@ INTERVAL_MAPS: Dict = {
         "30min": "30m",
         "60min": "60m",
         "90min": "90m",
-        "1hour": "1h",
+        "1hour": "60m",
         "1day": "1d",
         "5day": "5d",
         "1week": "1wk",
         "1month": "1mo",
         "3month": "3mo",
     },
-    "AlphaVantage": {"1min": 1, "5min": 5, "15min": 15, "30min": 30, "60min": 60},
+    "AlphaVantage": {
+        "1min": 1,
+        "5min": 5,
+        "15min": 15,
+        "30min": 30,
+        "60min": 60,
+        "1day": 1,
+    },
 }
 
 logger = logging.getLogger(__name__)
@@ -76,23 +84,26 @@ def load(
     interval: str = "1day",
     start_date: str = last_year.strftime("%Y-%m-%d"),
     source: str = "YahooFinance",
+    verbose: bool = True,
 ) -> pd.DataFrame:
-    """Loads forex for two given symbols
+    """Load forex for two given symbols.
 
     Parameters
     ----------
     to_symbol : str
         The from currency symbol. Ex: USD, EUR, GBP, YEN
-    from_symbol: str
+    from_symbol : str
         The from currency symbol. Ex: USD, EUR, GBP, YEN
-    resolution: str
-        The resolution for the data
-    interval: str
-        What interval to get data for
-    start_date: str
-        When to begin loading in data
-    source: str
-        Where to get data from
+    resolution : str, optional
+        The resolution for the data, by default "d"
+    interval : str, optional
+        What interval to get data for, by default "1day"
+    start_date : str, optional
+        When to begin loading in data, by default last_year.strftime("%Y-%m-%d")
+    source : str, optional
+        Where to get data from, by default "YahooFinance"
+    verbose : bool, optional
+        Display verbose information on what was the pair that was loaded, by default True
 
     Returns
     -------
@@ -102,16 +113,18 @@ def load(
     if source in ["YahooFinance", "AlphaVantage"]:
         interval_map = INTERVAL_MAPS[source]
 
-        if interval not in interval_map.keys():
-            console.print(
-                f"Interval not supported by {FOREX_SOURCES[source]}."
-                " Need to be one of the following options",
-                interval_map.keys(),
-            )
+        if interval not in interval_map.keys() and resolution != "d":
+            if verbose:
+                console.print(
+                    f"Interval not supported by {FOREX_SOURCES[source]}."
+                    " Need to be one of the following options",
+                    list(interval_map.keys()),
+                )
             return pd.DataFrame()
 
         if source == "AlphaVantage":
-
+            if "min" in interval:
+                resolution = "i"
             df = av_model.get_historical(
                 to_symbol=to_symbol,
                 from_symbol=from_symbol,
@@ -122,16 +135,17 @@ def load(
 
         if source == "YahooFinance":
 
-            df = yf.download(
+            # This works but its not pretty :(
+            interval = interval_map[interval] if interval != "1day" else "1440m"
+            df = stocks_helper.load(
                 f"{from_symbol}{to_symbol}=X",
-                end=datetime.now(),
-                start=datetime.strptime(start_date, "%Y-%m-%d"),
-                interval=interval_map[interval],
-                progress=False,
+                start_date=datetime.strptime(start_date, "%Y-%m-%d"),
+                interval=int(interval.replace("m", "")),
+                verbose=verbose,
             )
 
     if source == "Polygon":
-        # Interval for polygon gets broken into mulltiplier and timeframe
+        # Interval for polygon gets broken into multiplier and timeframe
         temp = re.split(r"(\d+)", interval)
         multiplier = int(temp[1])
         timeframe = temp[2]
@@ -160,7 +174,7 @@ YF_CURRENCY_LIST = get_yf_currency_list()
 
 @log_start_end(log=logger)
 def check_valid_yf_forex_currency(fx_symbol: str) -> str:
-    """Check if given symbol is supported on Yahoo Finance
+    """Check if given symbol is supported on Yahoo Finance.
 
     Parameters
     ----------
@@ -257,7 +271,7 @@ def display_candle(
 
 @log_start_end(log=logger)
 def parse_forex_symbol(input_symbol):
-    """Parses potential forex symbols"""
+    """Parse potential forex symbols."""
     for potential_split in ["-", "/"]:
         if potential_split in input_symbol:
             symbol = input_symbol.replace(potential_split, "")

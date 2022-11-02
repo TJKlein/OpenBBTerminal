@@ -40,11 +40,6 @@ set_key(default_env_file, "OPENBB_LOGGING_COMMIT_HASH", str(commit_hash))
 # Files that are explicitly pulled into the bundle
 added_files = [
     (os.path.join(os.getcwd(), "openbb_terminal"), "openbb_terminal"),
-    (os.path.join(os.getcwd(), "data_sources_default.json"), "."),
-    (os.path.join(os.getcwd(), "routines"), "routines"),
-    (os.path.join(os.getcwd(), "portfolio"), "portfolio"),
-    (os.path.join(os.getcwd(), "i18n"), "i18n"),
-    (os.path.join(os.getcwd(), "styles"), "styles"),
     (os.path.join(pathex, "property_cached"), "property_cached"),
     (os.path.join(pathex, "user_agent"), "user_agent"),
     (os.path.join(pathex, "vaderSentiment"), "vaderSentiment"),
@@ -67,6 +62,7 @@ added_files = [
         "pymongo",
     ),
     (os.path.join(pathex, "bson"), "bson"),
+    (os.path.join(pathex, "debugpy", "_vendored"), os.path.join("debugpy", "_vendored")),
     (".env", "."),
 ]
 
@@ -94,6 +90,7 @@ hidden_imports = [
     "bson",
     "_sysconfigdata__darwin_darwin",
     "prophet",
+    "debugpy",
 ]
 
 
@@ -105,7 +102,7 @@ analysis_kwargs = dict(
     hiddenimports=hidden_imports,
     hookspath=["build/pyinstaller/hooks"],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=["build/pyinstaller/hooks/hook-debugpy.py"],
     excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

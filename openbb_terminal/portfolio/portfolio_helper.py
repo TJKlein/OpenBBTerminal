@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 
 from openbb_terminal.decorators import log_start_end
-from openbb_terminal.core.config.paths import PORTFOLIO_DATA_DIRECTORY
+from openbb_terminal.core.config.paths import USER_PORTFOLIO_DATA_DIRECTORY
 from openbb_terminal.rich_config import console
 from openbb_terminal.portfolio.statics import REGIONS, PERIODS
 
@@ -46,7 +46,7 @@ PERIODS_DAYS = {
     "10y": 10 * 12 * 21,
 }
 
-DEFAULT_HOLDINGS_PATH = PORTFOLIO_DATA_DIRECTORY / "holdings"
+DEFAULT_HOLDINGS_PATH = USER_PORTFOLIO_DATA_DIRECTORY / "holdings"
 
 
 def is_ticker(ticker: str) -> bool:
@@ -223,7 +223,7 @@ def get_info_from_ticker(ticker: str) -> list:
 
     filename = "tickers_info.csv"
 
-    file_path = Path(str(DEFAULT_HOLDINGS_PATH), filename)
+    file_path = Path(str(USER_PORTFOLIO_DATA_DIRECTORY), filename)
 
     if file_path.is_file() and os.stat(file_path).st_size > 0:
         # file exists and is not empty, so append if necessary

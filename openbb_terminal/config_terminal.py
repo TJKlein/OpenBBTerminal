@@ -7,17 +7,22 @@ import dotenv
 
 # IMPORTATION INTERNAL
 
-from openbb_terminal.core.config.paths import USER_ENV_FILE, REPOSITORY_ENV_FILE
+from openbb_terminal.core.config.paths import PACKAGE_ENV_FILE, USER_ENV_FILE, REPOSITORY_ENV_FILE
 from .helper_classes import TerminalStyle as _TerminalStyle
 
 dotenv.load_dotenv(USER_ENV_FILE)
 dotenv.load_dotenv(REPOSITORY_ENV_FILE, override=True)
+dotenv.load_dotenv(PACKAGE_ENV_FILE, override=True)
 
 # Terminal UX section
+MPL_STYLE = os.getenv("OPENBB_MPLSTYLE") or "dark"
+PMF_STYLE = os.getenv("OPENBB_PMFSTYLE") or "dark"
+RICH_STYLE = os.getenv("OPENBB_RICHSTYLE") or "dark"
+
 theme = _TerminalStyle(
-    os.getenv("OPENBB_MPLSTYLE") or "dark",
-    os.getenv("OPENBB_MPFSTYLE") or "dark",
-    os.getenv("OPENBB_RICHSTYLE") or "dark",
+    MPL_STYLE,
+    PMF_STYLE,
+    RICH_STYLE,
 )
 
 # Set to True to see full stack traces for debugging/error reporting
@@ -31,7 +36,10 @@ PAPERMILL_NOTEBOOK_REPORT_PORT = (
 # Logging section
 
 # USE IN LOG LINES + FOR FOLDER NAME INSIDE S3 BUCKET
-LOGGING_APP_NAME = os.getenv("OPENBB_LOGGING_APP_NAME") or "gst"
+if "site-packages" in __file__:
+    LOGGING_APP_NAME = "gst_packaged_pypi"
+else:
+    LOGGING_APP_NAME = os.getenv("OPENBB_LOGGING_APP_NAME") or "gst"
 # AWS KEYS
 LOGGING_AWS_ACCESS_KEY_ID = (
     os.getenv("OPENBB_LOGGING_AWS_ACCESS_KEY_ID") or "REPLACE_ME"
@@ -39,6 +47,7 @@ LOGGING_AWS_ACCESS_KEY_ID = (
 LOGGING_AWS_SECRET_ACCESS_KEY = (
     os.getenv("OPENBB_LOGGING_AWS_SECRET_ACCESS_KEY") or "REPLACE_ME"
 )
+LOGGING_COMMIT_HASH = str(os.getenv("OPENBB_LOGGING_COMMIT_HASH", "REPLACE_ME"))
 # D | H | M | S
 LOGGING_FREQUENCY = os.getenv("OPENBB_LOGGING_FREQUENCY") or "H"
 # stdout,stderr,noop,file
@@ -55,6 +64,8 @@ LOGGING_ROLLING_CLOCK = bool(
 # DEBUG = 10
 # NOTSET = 0
 LOGGING_VERBOSITY = int(os.getenv("OPENBB_LOGGING_VERBOSITY") or 20)
+# LOGGING SUB APP
+LOGGING_SUB_APP = os.getenv("OPENBB_LOGGING_SUB_APP") or "terminal"
 
 # API Keys section
 
@@ -177,3 +188,6 @@ API_EODHD_KEY = os.getenv("OPENBB_API_EODHD_KEY") or "REPLACE_ME"
 
 # https://tokenterminal.com
 API_TOKEN_TERMINAL_KEY = os.getenv("OPENBB_API_TOKEN_TERMINAL_KEY") or "REPLACE_ME"
+
+# https://stocksera.pythonanywhere.com/accounts/developers
+API_STOCKSERA_KEY = os.getenv("OPENBB_API_STOCKSERA_KEY") or "REPLACE_ME"

@@ -14,19 +14,35 @@ import numpy as np
 
 from openbb_terminal.decorators import log_start_end
 from openbb_terminal.rich_config import console
+from openbb_terminal.core.config.paths import (
+    USER_EXPORTS_DIRECTORY,
+    USER_CUSTOM_IMPORTS_DIRECTORY,
+)
 
 logger = logging.getLogger(__name__)
 
 
-default_files = {
-    filepath.name: filepath
-    for file_type in ["csv", "xlsx"]
-    for filepath in chain(
-        Path("exports").rglob(f"*.{file_type}"),
-        Path("custom_imports").rglob(f"*.{file_type}"),
-    )
-    if filepath.is_file()
-}
+base_file_types = ["csv", "xlsx"]
+
+
+def get_default_files() -> Dict[str, Path]:
+    """Get the default files to load.
+
+    Returns
+    -------
+    default_files : Dict[str, Path]
+        A dictionary to map the default file names to their paths.
+    """
+    default_files = {
+        filepath.name: filepath
+        for file_type in base_file_types
+        for filepath in chain(
+            USER_EXPORTS_DIRECTORY.rglob(f"*.{file_type}"),
+            USER_CUSTOM_IMPORTS_DIRECTORY.rglob(f"*.{file_type}"),
+        )
+        if filepath.is_file()
+    }
+    return default_files
 
 
 @log_start_end(log=logger)
@@ -57,7 +73,7 @@ def load(
     if file_types is None:
         file_types = ["csv", "xlsx"]
     if data_files is None:
-        data_files = default_files
+        data_files = get_default_files()
 
     if file in data_files:
         full_file = data_files[file]
@@ -220,7 +236,13 @@ def add_ema(
 
 
 @log_start_end(log=logger)
-def add_sto(dataset: pd.DataFrame, period: int = 10) -> pd.DataFrame:
+def add_sto(
+    dataset: pd.DataFrame,
+    close_column: str = "close",
+    high_column: str = "high",
+    low_column: str = "low",
+    period: int = 10,
+) -> pd.DataFrame:
     """Stochastic Oscillator %K and %D : A stochastic oscillator is a momentum indicator comparing a particular closing
     price of a security to a range of its prices over a certain period of time. %K and %D are slow and fast indicators.
 
@@ -242,15 +264,15 @@ def add_sto(dataset: pd.DataFrame, period: int = 10) -> pd.DataFrame:
 
     # check if columns exist
     if (
-        "low" in dataset.columns
-        and "high" in dataset.columns
-        and "close" in dataset.columns
+        low_column in dataset.columns
+        and high_column in dataset.columns
+        and close_column in dataset.columns
     ):
         STOK = (
-            (dataset["close"] - dataset["low"].rolling(period).min())
+            (dataset[close_column] - dataset[low_column].rolling(period).min())
             / (
-                dataset["high"].rolling(period).max()
-                - dataset["low"].rolling(period).min()
+                dataset[high_column].rolling(period).max()
+                - dataset[low_column].rolling(period).min()
             )
         ) * 100
 
@@ -290,15 +312,17 @@ def add_rsi(
     d = u.copy()
     u[delta > 0] = delta[delta > 0]
     d[delta < 0] = -delta[delta < 0]
-    u[u.index[period - 1]] = np.mean(u[:period])  # first value is sum of avg gains
+    u[u.index[period - 1]] = np.mean(u.iloc[:period])  # first value is sum of avg gains
     u = u.drop(u.index[: (period - 1)])
-    d[d.index[period - 1]] = np.mean(d[:period])  # first value is sum of avg losses
+    d[d.index[period - 1]] = np.mean(
+        d.iloc[:period]
+    )  # first value is sum of avg losses
     d = d.drop(d.index[: (period - 1)])
     rs = (
         u.ewm(com=period - 1, adjust=False).mean()
         / d.ewm(com=period - 1, adjust=False).mean()
     )
-    dataset[f"RSI_{period}"] = 100 - 100 / (1 + rs)
+    dataset[f"RSI_{period}_{target_column}"] = 100 - 100 / (1 + rs)
 
     return dataset
 
@@ -376,15 +400,18 @@ def add_delta(
 @log_start_end(log=logger)
 def add_atr(
     dataset: pd.DataFrame,
+    close_column: str = "close",
+    high_column: str = "high",
+    low_column: str = "low",
 ) -> pd.DataFrame:
     """
     Calculate the Average True Range of a variable based on a a specific stock ticker.
     """
 
     if "high" in dataset and "low" in dataset and "close" in dataset:
-        dataset["ATR1"] = abs(dataset["high"] - dataset["low"])
-        dataset["ATR2"] = abs(dataset["high"] - dataset["close"].shift())
-        dataset["ATR3"] = abs(dataset["low"] - dataset["close"].shift())
+        dataset["ATR1"] = abs(dataset[high_column] - dataset[low_column])
+        dataset["ATR2"] = abs(dataset[high_column] - dataset[close_column].shift())
+        dataset["ATR3"] = abs(dataset[low_column] - dataset[close_column].shift())
         dataset["true_range"] = dataset[["ATR1", "ATR2", "ATR3"]].max(axis=1)
 
         # drop ATR1, ATR2, ATR3
@@ -396,7 +423,10 @@ def add_atr(
 
 
 @log_start_end(log=logger)
-def add_signal(dataset: pd.DataFrame) -> pd.DataFrame:
+def add_signal(
+    dataset: pd.DataFrame,
+    target_column: str = "close",
+) -> pd.DataFrame:
     """A price signal based on short/long term price.
 
     1 if the signal is that short term price will go up as compared to the long term.
@@ -418,8 +448,8 @@ def add_signal(dataset: pd.DataFrame) -> pd.DataFrame:
 
     # Create signals
     dataset["signal"] = np.where(
-        dataset["close"].rolling(window=10, min_periods=1, center=False).mean()
-        > dataset["close"].rolling(window=60, min_periods=1, center=False).mean(),
+        dataset[target_column].rolling(window=10, min_periods=1, center=False).mean()
+        > dataset[target_column].rolling(window=60, min_periods=1, center=False).mean(),
         1.0,
         0.0,
     )
