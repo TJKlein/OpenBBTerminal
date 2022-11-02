@@ -176,8 +176,27 @@ class DueDiligenceController(CryptoBaseController):
                 "--descend": {},
             }
             choices["events"]["-s"] = {c: None for c in coinpaprika_view.EVENTS_FILTERS}
-            choices["twitter"]["-s"] = {
-                c: None for c in coinpaprika_view.TWEETS_FILTERS
+            choices["twitter"] = {
+                "--sort": {c: {} for c in coinpaprika_view.TWEETS_FILTERS},
+                "-s": "--sort",
+                "--limit": {str(c): {} for c in range(1, 100)},
+                "-l": "--limit",
+                "--descend": {},
+            }
+            choices["news"] = {
+                "--sort": {c: {} for c in cryptopanic_model.SORT_FILTERS},
+                "-s": "--sort",
+                "--limit": {str(c): {} for c in range(1, 100)},
+                "-l": "--limit",
+                "--descend": {},
+                "--urls": {},
+                "-u": "--urls",
+                "--kind": {c: {} for c in cryptopanic_model.CATEGORIES},
+                "-k": "--kind",
+                "--filter": {c: {} for c in cryptopanic_model.FILTERS},
+                "-f": "--filter",
+                "--region": {c: {} for c in cryptopanic_model.REGIONS},
+                "-r": "--region",
             }
             choices["mt"] = {c: None for c in self.messari_timeseries}
             choices["mt"]["-i"] = {c: None for c in messari_model.INTERVALS_TIMESERIES}
@@ -877,7 +896,7 @@ class DueDiligenceController(CryptoBaseController):
             ccxt_view.display_order_book(
                 ns_parser.exchange,
                 symbol=self.symbol,
-                vs=ns_parser.vs,
+                to_symbol=ns_parser.vs,
                 export=ns_parser.export,
             )
 
@@ -920,7 +939,7 @@ class DueDiligenceController(CryptoBaseController):
             ccxt_view.display_trades(
                 ns_parser.exchange,
                 symbol=self.symbol,
-                vs=ns_parser.vs,
+                to_symbol=ns_parser.vs,
                 export=ns_parser.export,
                 limit=ns_parser.limit,
             )
@@ -929,7 +948,11 @@ class DueDiligenceController(CryptoBaseController):
     def call_balance(self, other_args):
         """Process balance command"""
         coin = self.symbol.upper()
-        _, quotes = binance_model.show_available_pairs_for_given_symbol(coin)
+        values = binance_model.show_available_pairs_for_given_symbol(coin)
+        if values:
+            quotes = values[1]
+        else:
+            quotes = None
 
         parser = argparse.ArgumentParser(
             prog="balance",
@@ -953,7 +976,7 @@ class DueDiligenceController(CryptoBaseController):
 
         if ns_parser:
             binance_view.display_balance(
-                to_symbol=coin, from_symbol=ns_parser.vs, export=ns_parser.export
+                from_symbol=coin, to_symbol=ns_parser.vs, export=ns_parser.export
             )
 
     @log_start_end(log=logger)
@@ -1052,7 +1075,7 @@ class DueDiligenceController(CryptoBaseController):
 
         parser.add_argument(
             "--descend",
-            action="store_false",
+            action="store_true",
             help="Flag to sort in descending order (lowest first)",
             dest="descend",
             default=False,
@@ -1073,8 +1096,8 @@ class DueDiligenceController(CryptoBaseController):
         if ns_parser:
             if self.symbol:
                 coinpaprika_view.display_markets(
-                    symbol=self.symbol,
-                    currency=ns_parser.vs,
+                    from_symbol=self.symbol,
+                    to_symbol=ns_parser.vs,
                     limit=ns_parser.limit,
                     sortby=ns_parser.sortby,
                     ascend=not ns_parser.descend,
@@ -1241,7 +1264,7 @@ class DueDiligenceController(CryptoBaseController):
 
         parser.add_argument(
             "--descend",
-            action="store_false",
+            action="store_true",
             help="Flag to sort in descending order (lowest first)",
             dest="descend",
             default=False,

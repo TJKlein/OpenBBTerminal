@@ -1,7 +1,7 @@
 # pylint: disable=too-many-arguments
 import os
 import argparse
-from typing import Any, Union, Optional, List, Dict
+from typing import Any, Union, Optional, List, Dict, Tuple
 from datetime import timedelta, datetime, time
 import logging
 import pandas as pd
@@ -473,6 +473,7 @@ def plot_forecast(
     high_quantile: float = None,
     forecast_only: bool = False,
     naive: bool = False,
+    export_pred_raw: bool = False,
     external_axes: Optional[List[plt.axes]] = None,
 ):
     quant_kwargs = {}
@@ -530,8 +531,31 @@ def plot_forecast(
 
     print_pretty_prediction(numeric_forecast, data[target_col].iloc[-1])
 
-    # TODO: This needs to get fixed
-    export_data(export, os.path.dirname(os.path.abspath(__file__)), "expo")
+    # user wants to export plot
+    export_data(export, os.path.dirname(os.path.abspath(__file__)), name)
+
+    # user wants to export only raw predictions
+    if export_pred_raw:
+        # convert numeric)forecast to dataframe
+        numeric_forecast = numeric_forecast.to_frame()
+
+        # if numeric_forcast has a column with *_0.5, then rename it to target_col
+        if f"{target_col}_0.5" in numeric_forecast.columns:
+            numeric_forecast.rename(
+                columns={f"{target_col}_0.5": target_col}, inplace=True
+            )
+
+        # convert non-date column to 2 decimal places
+        numeric_forecast[target_col] = numeric_forecast[target_col].apply(
+            lambda x: round(x, 2)
+        )
+
+        export_data(
+            "csv",
+            os.path.dirname(os.path.abspath(__file__)),
+            name + "_predictions",
+            numeric_forecast,
+        )
 
 
 def plot_explainability(
@@ -589,12 +613,15 @@ def dt_format(x) -> str:
 
 
 def get_series(
-    data: pd.DataFrame, target_column: str = None, is_scaler: bool = True
-) -> tuple[Optional[Scaler], TimeSeries]:
+    data: pd.DataFrame,
+    target_column: str = None,
+    is_scaler: bool = True,
+    time_col: str = "date",
+) -> Tuple[Optional[Scaler], TimeSeries]:
     filler = MissingValuesFiller()
     filler_kwargs = dict(
         df=data,
-        time_col="date",
+        time_col=time_col,
         value_cols=[target_column],
         freq="B",
         fill_missing_dates=True,
