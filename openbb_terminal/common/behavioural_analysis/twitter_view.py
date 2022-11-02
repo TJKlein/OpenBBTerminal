@@ -74,6 +74,119 @@ def display_inference(symbol: str, limit: int = 100, export: str = ""):
 
 
 @log_start_end(log=logger)
+def display_sentiment_from_df(
+    symbol: str,
+    df_tweets: pd.DataFrame,
+    n_days_past: int = 2,
+    compare: bool = False,
+    export: str = "",
+    external_axes: Optional[List[plt.Axes]] = None,
+):
+    """Plot sentiments from symbol
+
+    Parameters
+    ----------
+    symbol: str
+        Stock ticker symbol to get sentiment for
+    n_tweets: int
+        Number of tweets to get per hour
+    n_days_past: int
+        Number of days to extract tweets for
+    compare: bool
+        Show corresponding change in stock price
+    export: str
+        Format to export tweet dataframe
+    external_axes: Optional[List[plt.Axes]], optional
+        External axes (1 axis is expected in the list), by default None
+    """
+
+    # df_tweets = twitter_model.get_sentiment(symbol, n_tweets, n_days_past)
+
+    if not df_tweets.empty:
+
+        ax1, ax2, ax3 = None, None, None
+
+        if compare:
+            # This plot has 3 axes
+            if external_axes is None:
+                _, axes = plt.subplots(
+                    3, 1, sharex=False, figsize=plot_autoscale(), dpi=cfg_plot.PLOT_DPI
+                )
+                ax1, ax2, ax3 = axes
+            elif is_valid_axes_count(external_axes, 3):
+                (ax1, ax2, ax3) = external_axes
+            else:
+                return
+        else:
+            # This plot has 2 axes
+            if external_axes is None:
+                _, axes = plt.subplots(
+                    2, 1, sharex=True, figsize=plot_autoscale(), dpi=cfg_plot.PLOT_DPI
+                )
+                ax1, ax2 = axes
+            elif is_valid_axes_count(external_axes, 2):
+                (ax1, ax2) = external_axes
+            else:
+                return
+
+        ax1.plot(
+            pd.to_datetime(df_tweets["created_at"]),
+            df_tweets["cumulative_compound"].values,
+        )
+        ax1.set_ylabel("\nCumulative\nVADER Sentiment")
+        for _, day_df in df_tweets.groupby(by="Day"):
+            day_df["time"] = pd.to_datetime(day_df["created_at"])
+            day_df = day_df.sort_values(by="time")
+            ax1.plot(
+                day_df["time"],
+                day_df["sentiment"].cumsum(),
+                label=pd.to_datetime(day_df["date"]).iloc[0].strftime("%Y-%m-%d"),
+            )
+            ax2.bar(
+                df_tweets["date"],
+                df_tweets["positive"],
+                color=theme.up_color,
+                width=theme.volume_bar_width / 100,
+            )
+        ax2.bar(
+            df_tweets["date"],
+            -1 * df_tweets["negative"],
+            color=theme.down_color,
+            width=theme.volume_bar_width / 100,
+        )
+        ax1.set_title(
+            f"Twitter's {symbol} total compound sentiment over time is {round(np.sum(df_tweets['sentiment']), 2)}"
+        )
+
+        theme.style_primary_axis(ax1)
+
+        ax2.set_ylabel("VADER Polarity Scores")
+        theme.style_primary_axis(ax2)
+
+        if compare:
+            # get stock end price for each corresponding day if compare == True
+            closing_price_df = get_closing_price(symbol, n_days_past)
+            if ax3:
+                ax3.plot(
+                    closing_price_df["Date"],
+                    closing_price_df["Close"],
+                    label=pd.to_datetime(closing_price_df["Date"])
+                    .iloc[0]
+                    .strftime("%Y-%m-%d"),
+                )
+
+                ax3.set_ylabel("Stock Price")
+                theme.style_primary_axis(ax3)
+
+        if external_axes is None:
+            theme.visualize_output()
+
+    export_data(
+        export, os.path.dirname(os.path.abspath(__file__)), "sentiment", df_tweets
+    )
+
+
+@log_start_end(log=logger)
 def display_sentiment(
     symbol: str,
     n_tweets: int = 15,

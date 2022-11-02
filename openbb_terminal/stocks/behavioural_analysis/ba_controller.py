@@ -18,6 +18,7 @@ from openbb_terminal.common.behavioural_analysis import (
     stocktwits_view,
     twitter_view,
 )
+from openbb_terminal.stocks.sentiment import sentiment_controller
 from openbb_terminal.stocks.behavioural_analysis import finnhub_view, cramer_view
 from openbb_terminal.decorators import log_start_end
 from openbb_terminal.helper_funcs import (
@@ -52,6 +53,7 @@ class BehaviouralAnalysisController(StockBaseController):
         "trending",
         "stalker",
         "infer",
+        "twitter_sent",
         "sentiment",
         "reddit_sent",
         "mentions",
@@ -216,12 +218,14 @@ class BehaviouralAnalysisController(StockBaseController):
         mt.add_cmd("bullbear", self.ticker)
         mt.add_cmd("messages", self.ticker)
         mt.add_cmd("infer", self.ticker)
-        mt.add_cmd("sentiment", self.ticker)
+        mt.add_cmd("twitter_sent", self.ticker)
+        mt.add_cmd("sentiment")
         mt.add_cmd("mentions", self.ticker)
         mt.add_cmd("regions", self.ticker)
         mt.add_cmd("interest", self.ticker)
         mt.add_cmd("queries", self.ticker)
         mt.add_cmd("rise", self.ticker)
+        mt.add_cmd("trend")
         mt.add_cmd("jcdr")
         mt.add_cmd("jctr", self.ticker)
         console.print(text=mt.menu_text, menu="Stocks - Behavioural Analysis")
@@ -884,12 +888,13 @@ class BehaviouralAnalysisController(StockBaseController):
                 console.print("No ticker loaded. Please load using 'load <ticker>'\n")
 
     @log_start_end(log=logger)
-    def call_sentiment(self, other_args: List[str]):
+    def call_twitter_sent(self, other_args: List[str]):
         """Process sentiment command"""
+
         parser = argparse.ArgumentParser(
             add_help=False,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-            prog="sentiment",
+            prog="twitter_sent",
             description="""
                 Plot in-depth sentiment predicted from tweets from last days
                 that contain pre-defined ticker. [Source: Twitter]
@@ -1018,3 +1023,16 @@ class BehaviouralAnalysisController(StockBaseController):
             cramer_view.display_cramer_ticker(
                 symbol=self.ticker, raw=ns_parser.raw, export=ns_parser.export
             )
+
+    @log_start_end(log=logger)
+    def call_sentiment(self, _):
+        """Process screen command"""
+        # self.queue = sentiment_controller.SentimentController(self.queue).menu()
+        if self.ticker:
+            self.queue = self.load_class(
+                sentiment_controller.SentimentController,
+                self.ticker,
+                self.queue,
+            )
+        else:
+            console.print("No ticker loaded. First use `load <ticker>`\n")

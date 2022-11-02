@@ -1,6 +1,5 @@
 """Reddit Model"""
 __docformat__ = "numpy"
-# pylint:disable=too-many-lines
 
 import logging
 from datetime import datetime, timedelta
@@ -19,7 +18,7 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 from openbb_terminal import config_terminal as cfg
 from openbb_terminal.common.behavioural_analysis.reddit_helpers import find_tickers
-from openbb_terminal.decorators import check_api_key, log_start_end
+from openbb_terminal.decorators import log_start_end
 from openbb_terminal.rich_config import console
 
 logger = logging.getLogger(__name__)
@@ -37,15 +36,6 @@ l_sub_reddits = [
 
 
 @log_start_end(log=logger)
-@check_api_key(
-    [
-        "API_REDDIT_CLIENT_ID",
-        "API_REDDIT_CLIENT_SECRET",
-        "API_REDDIT_USERNAME",
-        "API_REDDIT_USER_AGENT",
-        "API_REDDIT_PASSWORD",
-    ]
-)
 def get_watchlists(
     limit: int = 5,
 ) -> Tuple[List[praw.models.reddit.submission.Submission], dict, int]:
@@ -144,15 +134,6 @@ def get_watchlists(
 
 
 @log_start_end(log=logger)
-@check_api_key(
-    [
-        "API_REDDIT_CLIENT_ID",
-        "API_REDDIT_CLIENT_SECRET",
-        "API_REDDIT_USERNAME",
-        "API_REDDIT_USER_AGENT",
-        "API_REDDIT_PASSWORD",
-    ]
-)
 def get_popular_tickers(
     limit: int = 10, post_limit: int = 50, subreddits: str = ""
 ) -> pd.DataFrame:
@@ -316,15 +297,6 @@ def get_popular_tickers(
 
 
 @log_start_end(log=logger)
-@check_api_key(
-    [
-        "API_REDDIT_CLIENT_ID",
-        "API_REDDIT_CLIENT_SECRET",
-        "API_REDDIT_USERNAME",
-        "API_REDDIT_USER_AGENT",
-        "API_REDDIT_PASSWORD",
-    ]
-)
 def get_spac_community(
     limit: int = 10, popular: bool = False
 ) -> Tuple[pd.DataFrame, dict]:
@@ -456,15 +428,6 @@ def get_spac_community(
 
 
 @log_start_end(log=logger)
-@check_api_key(
-    [
-        "API_REDDIT_CLIENT_ID",
-        "API_REDDIT_CLIENT_SECRET",
-        "API_REDDIT_USERNAME",
-        "API_REDDIT_USER_AGENT",
-        "API_REDDIT_PASSWORD",
-    ]
-)
 def get_spac(
     limit: int = 5,
 ) -> Tuple[pd.DataFrame, dict, int]:
@@ -604,15 +567,6 @@ def get_spac(
 
 
 @log_start_end(log=logger)
-@check_api_key(
-    [
-        "API_REDDIT_CLIENT_ID",
-        "API_REDDIT_CLIENT_SECRET",
-        "API_REDDIT_USERNAME",
-        "API_REDDIT_USER_AGENT",
-        "API_REDDIT_PASSWORD",
-    ]
-)
 def get_wsb_community(limit: int = 10, new: bool = False) -> pd.DataFrame:
     """Get wsb posts [Source: reddit]
 
@@ -713,15 +667,6 @@ def get_wsb_community(limit: int = 10, new: bool = False) -> pd.DataFrame:
 
 
 @log_start_end(log=logger)
-@check_api_key(
-    [
-        "API_REDDIT_CLIENT_ID",
-        "API_REDDIT_CLIENT_SECRET",
-        "API_REDDIT_USERNAME",
-        "API_REDDIT_USER_AGENT",
-        "API_REDDIT_PASSWORD",
-    ]
-)
 def get_due_dilligence(
     symbol: str, limit: int = 5, n_days: int = 3, show_all_flairs: bool = False
 ) -> pd.DataFrame:
@@ -866,15 +811,117 @@ def get_due_dilligence(
 
 
 @log_start_end(log=logger)
-@check_api_key(
-    [
-        "API_REDDIT_CLIENT_ID",
-        "API_REDDIT_CLIENT_SECRET",
-        "API_REDDIT_USERNAME",
-        "API_REDDIT_USER_AGENT",
-        "API_REDDIT_PASSWORD",
-    ]
-)
+def get_posts_data(
+    symbol: str,
+    limit: int = 100,
+    sortby: str = "relevance",
+    time_frame: str = "week",
+    full_search: bool = True,
+    subreddits: str = "all",
+) -> Tuple[List[str], List[str]]:
+    """Finds posts related to a specific search term in Reddit
+
+    Parameters
+    ----------
+    symbol: str
+        Ticker symbol to search for
+    limit: int
+        Number of posts to get per subreddit
+    sortby: str
+        Search type
+        Possibilities: "relevance", "hot", "top", "new", or "comments"
+    time_frame: str
+        Relative time of post
+        Possibilities: "hour", "day", "week", "month", "year", "all"
+    full_search: bool
+        Enable comprehensive search for ticker
+    subreddits: str
+        Comma-separated list of subreddits
+
+    Returns
+    -------
+    tuple[pd.DataFrame, list, float]:
+        Dataframe of submissions related to the search term,
+        List of polarity scores,
+        Average polarity score
+    """
+    praw_api = praw.Reddit(
+        client_id=cfg.API_REDDIT_CLIENT_ID,
+        client_secret=cfg.API_REDDIT_CLIENT_SECRET,
+        username=cfg.API_REDDIT_USERNAME,
+        user_agent=cfg.API_REDDIT_USER_AGENT,
+        password=cfg.API_REDDIT_PASSWORD,
+        check_for_updates=False,
+        comment_kind="t1",
+        message_kind="t4",
+        redditor_kind="t2",
+        submission_kind="t3",
+        subreddit_kind="t5",
+        trophy_kind="t6",
+        oauth_url="https://oauth.reddit.com",
+        reddit_url="https://www.reddit.com",
+        short_url="https://redd.it",
+        ratelimit_seconds=5,
+        timeout=16,
+    )
+    try:
+        praw_api.user.me()
+    except (Exception, ResponseException):
+        console.print("[red]Wrong Reddit API keys[/red]\n")
+        return pd.DataFrame()
+
+    subreddits_l = subreddits.split(",")
+    posts = []
+    post_ids = set()
+    console.print("Searching through subreddits for posts.")
+    for sub_str in tqdm(subreddits_l):
+        try:
+            subreddit = praw_api.subreddit(sub_str)
+        except Exception:
+            console.print("Invalid subreddit name {sub_str}, skipping")
+            continue
+        submissions = subreddit.search(
+            query=symbol,
+            limit=limit,
+            sort=sortby,
+            time_filter=time_frame,
+        )
+        for sub in submissions:
+            if (
+                sub.selftext
+                and sub.title
+                and not sub.removed_by_category
+                and sub.id not in post_ids
+            ):
+                post_ids.add(sub.id)
+                posts.append(sub)
+
+    # polarity_scores = []
+    # post_data = []
+    posts = []
+    titles = []
+    console.print("Analyzing each post...")
+    for p in tqdm(posts):
+        texts = [p.title, p.selftext]
+        if full_search:
+            tlcs = get_comments(p)
+            texts.extend(tlcs)
+        preprocessed_text = clean_reddit_text(texts)
+        # sentiment = get_sentiment(preprocessed_text)
+        # polarity_scores.append(sentiment)
+        # post_data.append([p.title, sentiment])
+        posts.append(preprocessed_text)
+        titles.append(p.title)
+
+    # avg_polarity = sum(polarity_scores) / len(polarity_scores)
+
+    # columns = ["Title", "Polarity Score"]
+    # df = pd.DataFrame(post_data, columns=columns)
+
+    return posts, titles
+
+
+@log_start_end(log=logger)
 def get_posts_about(
     symbol: str,
     limit: int = 100,
@@ -982,15 +1029,6 @@ def get_posts_about(
 
 
 @log_start_end(log=logger)
-@check_api_key(
-    [
-        "API_REDDIT_CLIENT_ID",
-        "API_REDDIT_CLIENT_SECRET",
-        "API_REDDIT_USERNAME",
-        "API_REDDIT_USER_AGENT",
-        "API_REDDIT_PASSWORD",
-    ]
-)
 def get_comments(
     post: praw.models.reddit.submission.Submission,
 ) -> List[praw.models.reddit.comment.Comment]:
@@ -1053,15 +1091,6 @@ def clean_reddit_text(docs: List[str]) -> List[str]:
 
 
 @log_start_end(log=logger)
-@check_api_key(
-    [
-        "API_REDDIT_CLIENT_ID",
-        "API_REDDIT_CLIENT_SECRET",
-        "API_REDDIT_USERNAME",
-        "API_REDDIT_USER_AGENT",
-        "API_REDDIT_PASSWORD",
-    ]
-)
 def get_sentiment(post_data: List[str]) -> float:
     """Find the sentiment of a post and related comments
 
